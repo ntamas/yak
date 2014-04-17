@@ -117,7 +117,9 @@ public:
 	}
 
 	Measurement measure() {
-		return Measurement(getRealState() + generateNoise());
+		Measurement result;
+		result.value = getMeasurementMatrix() * getRealState() + generateNoise();
+		return result;
 	}
 
 	void step(double dt) {
