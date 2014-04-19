@@ -31,22 +31,22 @@ namespace yak {
  * react to control signals. Use this class template to implement your own process
  * in a similar way.
  */
-template <typename TStateEstimate, typename TControlVector=SimpleControlVector<0> >
+template <typename TStateEstimate>
 class ConstantProcessModel {
+
 public:
 
 	typedef TStateEstimate StateEstimate;
-	typedef TControlVector ControlVector;
-	typedef typename StateEstimate::ColumnVector StateVector;
 
+protected:
+
+	typedef typename StateEstimate::ColumnVector StateVector;
 	typedef Eigen::Matrix<
 		typename StateEstimate::DataType,
 		StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS
 	> StateStateMatrix;
-	typedef Eigen::Matrix<
-		typename StateEstimate::DataType,
-		StateEstimate::DIMENSIONS, ControlVector::DIMENSIONS
-	> ControlMatrix;
+
+public:
 
 	/**
 	 * The constant state that this process assumes in each step.
@@ -70,8 +70,12 @@ public:
 	 * \c dt seconds have passed since the last Kalman filter step.
 	 * This matrix is usually denoted by B in textbooks.
 	 *
+	 * This function is optional; if you don't have a control vector
+	 * for your process, there is no need to add an implementation.
+	 *
 	 * \param  dt     the length of the time interval
 	 */
+	template <typename ControlMatrix>
 	ControlMatrix calculateControlMatrix(double dt) {
 		return ControlMatrix::Zero();
 	}

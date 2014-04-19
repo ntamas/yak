@@ -78,12 +78,9 @@ public:
 	double yAcceleration() { return mean(5); }
 };
 
-typedef SimpleControlVector<0> VehicleControlVector;
-
 class VehicleProcessModel {
 public:
 	typedef VehicleStateEstimate StateEstimate;
-	typedef VehicleControlVector ControlVector;
 
 	Matrix6d calculateJacobian(double dt) {
 		Matrix6d result;
@@ -94,10 +91,6 @@ public:
 				  0,  0,  0,  0,  1,  0,
 				  0,  0,  0,  0,  0,  1;
 		return result;
-	}
-
-	Eigen::Matrix<double, 6, 0> calculateControlMatrix(double dt) {
-		return Eigen::Matrix<double, 6, 0>::Zero();
 	}
 
 	Matrix6d calculateNoiseCovarianceMatrix(double dt) {
@@ -115,7 +108,8 @@ class VehicleMeasurementModel {
 
 public:
 
-	typedef VehicleMeasurement Measurement;
+	static const int DIMENSIONS = 4;
+
 	typedef Eigen::Matrix<double, 4, 6> MeasurementMatrix;
 
 	double time;
@@ -157,8 +151,8 @@ public:
 		return result;
 	}
 
-	Measurement measure() {
-		Measurement result;
+	VehicleMeasurement measure() {
+		VehicleMeasurement result;
 		result.value = getMeasurementMatrix() * getRealState() + generateNoise();
 		return result;
 	}
@@ -172,7 +166,6 @@ int main(int argc, char* argv[]) {
 	VehicleProcessModel vehicleProcessModel;
 	VehicleMeasurementModel vehicleMeasurementModel;
 	VehicleMeasurement measurement;
-	VehicleControlVector nullVector;
 
 	KalmanFilter<VehicleProcessModel, VehicleMeasurementModel> filter(
 			&vehicleProcessModel, &vehicleMeasurementModel);
@@ -181,7 +174,7 @@ int main(int argc, char* argv[]) {
 	while (vehicleMeasurementModel.time < 4*M_PI) {
 		vehicleMeasurementModel.step(DT);
 		measurement = vehicleMeasurementModel.measure();
-		filter.update(DT, nullVector, measurement);
+		filter.update(DT, measurement);
 
 		cout << vehicleMeasurementModel.time << '\t';
 		cout << vehicleMeasurementModel.getRealState()(0) << '\t';

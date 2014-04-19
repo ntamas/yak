@@ -43,13 +43,12 @@ typedef Eigen::Matrix<double, 1, 1> Matrix1d;
 
 typedef Gaussian<1> VoltageReadingState;
 typedef SimpleMeasurement<1> VoltageMeasurement;
-typedef SimpleControlVector<0> NoControlVector;
 typedef ConstantProcessModel<VoltageReadingState> VoltageProcessModel;
 
 class VoltageMeasurementModel {
 
 public:
-	typedef VoltageMeasurement Measurement;
+	static const int DIMENSIONS = 1;
 
 	static const int NUM_READINGS = 10;
 	static const double predefinedReadings[NUM_READINGS];
@@ -96,7 +95,7 @@ int main(int argc, char* argv[]) {
 	while (voltageMeasurementModel.time < 50) {
 		voltageMeasurementModel.step();
 		measurement = voltageMeasurementModel.measure();
-		filter.update(1, NoControlVector(), measurement);
+		filter.update(1, measurement);
 
 		std::cout << voltageMeasurementModel.time << '\t';
 		std::cout << voltageProcessModel.getCurrentState()(0) << '\t';

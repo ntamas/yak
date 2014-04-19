@@ -64,15 +64,11 @@ public:
 	double yVelocity() { return mean(3); }
 };
 
-class CannonBallControlVector : public SimpleControlVector<1> {
-public:
-	double gravity() { return value(0); }
-};
+typedef Eigen::Matrix<double, 1, 1> CannonBallControlVector;
 
 class CannonBallProcessModel {
 public:
 	typedef CannonBallStateEstimate StateEstimate;
-	typedef CannonBallControlVector ControlVector;
 
 	Matrix4d calculateJacobian(double dt) {
 		Matrix4d result;
@@ -116,7 +112,7 @@ public:
 		return result;
 	}
 
-	Measurement measure() {
+	CannonBallMeasurement measure() {
 		Measurement result;
 		result.value = getMeasurementMatrix() * getRealState() + generateNoise();
 		return result;
@@ -144,7 +140,7 @@ int main(int argc, char* argv[]) {
 	filter.reset(initialEstimate);
 
 	cannonBallMeasurementModel.variances << 0.2, 0.2, 0.2, 0.2;
-	gravity.value << GRAVITY;
+	gravity << GRAVITY;
 
 	cout << "time\tactual_x\tactual_y\tmeasured_x\tmeasured_y\testimated_x\testimated_y\n";
 	while (true) {

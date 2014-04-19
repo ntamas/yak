@@ -40,6 +40,7 @@ public:
 	 */
 	static const int DIMENSIONS = dimension;
 
+protected:
 	/**
 	 * Typedef for the datatype used in this class.
 	 */
@@ -50,6 +51,7 @@ public:
 	 */
 	typedef Eigen::Matrix<T, dimension, 1> ColumnVector;
 	
+public:
 	/**
 	 * The value of the measurement in vector form.
 	 */
@@ -72,10 +74,16 @@ public:
  */
 template <typename TState, typename TMeasurement>
 class IndependentNoisyMeasurementModel {
-public:
 
+public:
 	/**
-	 * Required typedef; points to the measurement type used by this model.
+	 * The number of dimensions of the measurement vector.
+	 */
+	static const int DIMENSIONS = TMeasurement::DIMENSIONS;
+
+protected:
+	/**
+	 * Convenience typedef; points to the measurement type used by this model.
 	 */
 	typedef TMeasurement Measurement;
 
@@ -84,22 +92,23 @@ public:
 	 * state into a measurement.
 	 */
 	typedef Eigen::Matrix<typename TState::DataType,
-			TMeasurement::DIMENSIONS, TState::DIMENSIONS> MeasurementMatrix;
+			DIMENSIONS, TState::DIMENSIONS> MeasurementMatrix;
 
 	/**
 	 * Convenience typedef; points to the type of the matrix that describes the
 	 * covariance of a measurement.
 	 */
 	typedef Eigen::Matrix<typename TState::DataType,
-			TMeasurement::DIMENSIONS, TMeasurement::DIMENSIONS> CovarianceMatrix;
+			DIMENSIONS, DIMENSIONS> CovarianceMatrix;
 
 	/**
 	 * Convenience typedef; points to a vector that contains the variances of the
 	 * individual noise components.
 	 */
-	typedef Eigen::Matrix<typename TState::DataType, TMeasurement::DIMENSIONS, 1>
+	typedef Eigen::Matrix<typename TState::DataType, DIMENSIONS, 1>
 		NoiseVarianceVector;
 
+public:
 	/**
 	 * Contains the variances of the individual noise components.
 	 */
