@@ -52,14 +52,21 @@ public:
      */
     typedef typename ProcessModel::StateEstimate StateEstimate;
 
+    /**
+     * Convenience alias for the data type of predicted measurements.
+     */
+    typedef Gaussian<MeasurementModel::DIMENSIONS> MeasurementEstimate;
+
     typedef Eigen::Matrix<typename StateEstimate::DataType,
         StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS> JacobianMatrix;
     typedef Eigen::Matrix<typename StateEstimate::DataType,
         MeasurementModel::DIMENSIONS, StateEstimate::DIMENSIONS> MeasurementMatrix;
     typedef Eigen::Matrix<typename StateEstimate::DataType,
-        MeasurementModel::DIMENSIONS, MeasurementModel::DIMENSIONS> InnovationInverseMatrix;
+        MeasurementModel::DIMENSIONS, MeasurementModel::DIMENSIONS> MeasurementCovarianceMatrix;
     typedef Eigen::Matrix<typename StateEstimate::DataType,
         StateEstimate::DIMENSIONS, MeasurementModel::DIMENSIONS> KalmanGainMatrix;
+    typedef Eigen::Matrix<typename StateEstimate::DataType,
+        StateEstimate::DIMENSIONS, MeasurementModel::DIMENSIONS> StateMeasurementCrossCovarianceMatrix;
 
     /**
      * The process model that this filter is using.
@@ -106,7 +113,12 @@ public:
     template <typename Measurement>
     void update(double dt, const Measurement& measurement) {
         StateEstimate predictedState = predictNextState(dt);
-        correctPredictedState(predictedState, measurement);
+        MeasurementEstimate predictedMeasurement = predictNextMeasurement(
+                predictedState);
+        StateMeasurementCrossCovarianceMatrix crossCovarianceMatrix =
+            calculateStateMeasurementCrossCovarianceMatrix(predictedState);
+        correctPredictedState(predictedState, predictedMeasurement,
+                crossCovarianceMatrix, measurement);
     }
 
     /**
@@ -121,10 +133,103 @@ public:
     void update(double dt, const ControlVector& control,
             const Measurement& measurement) {
         StateEstimate predictedState = predictNextState(dt, control);
-        correctPredictedState(predictedState, measurement);
+        MeasurementEstimate predictedMeasurement = predictNextMeasurement(
+                predictedState);
+        StateMeasurementCrossCovarianceMatrix crossCovarianceMatrix =
+            calculateStateMeasurementCrossCovarianceMatrix(predictedState);
+        correctPredictedState(predictedState, predictedMeasurement,
+                crossCovarianceMatrix, measurement);
     }
 
 protected:
+
+    /**
+     * Predicts the next state of the model based on the previous state
+     * estimate and the time that has passed since the last measurement.
+     *
+     * \param  dt  the time that has passed since the last measurement
+     * \return the \em "a priori" state estimate
+     */
+    StateEstimate predictNextState(double dt) const {
+        JacobianMatrix jacobianMatrix;
+        StateEstimate predictedState;
+
+        // Calculate the process Jacobian
+        jacobianMatrix = processModel->calculateJacobian(dt);
+
+        // Preliminary state prediction
+        predictedState.mean = jacobianMatrix * lastEstimate.mean;
+        predictedState.covariance = jacobianMatrix * lastEstimate.covariance *
+            jacobianMatrix.transpose() +
+            processModel->calculateNoiseCovarianceMatrix(dt);
+
+        return predictedState;
+    }
+
+    /**
+     * Predicts the next state of the model based on the previous state
+     * estimate, the time that has passed since the last measurement, and
+     * the current control vector.
+     *
+     * \param  dt       the time that has passed since the last measurement
+     * \param  control  the current control vector
+     * \return the \em "a priori" state estimate
+     */
+    template <typename ControlVector>
+    StateEstimate predictNextState(double dt, const ControlVector& control) const {
+        JacobianMatrix jacobianMatrix;
+        StateEstimate predictedState;
+
+        // Calculate the process Jacobian
+        jacobianMatrix = processModel->calculateJacobian(dt);
+
+        // Preliminary state prediction
+        predictedState.mean = jacobianMatrix * lastEstimate.mean;
+        if (control.size() > 0) {
+            predictedState.mean += processModel->calculateControlMatrix(dt) * control;
+        }
+        predictedState.covariance = jacobianMatrix *
+            lastEstimate.covariance * jacobianMatrix.transpose() +
+            processModel->calculateNoiseCovarianceMatrix(dt);
+
+        return predictedState;
+    }
+
+    /**
+     * Predicts the next measurement from the \em "a priori" state estimate.
+     *
+     * \param  predictedState  the \em "a priori" state estimate.
+     */
+    MeasurementEstimate predictNextMeasurement(const StateEstimate& predictedState)
+        const {
+        MeasurementEstimate predictedMeasurement;
+        MeasurementMatrix measurementMatrix;
+
+        // Calculate the measurement matrix
+        measurementMatrix = measurementModel->getMeasurementMatrix();
+
+        // Calculate the predicted measurement from the predicted state
+        predictedMeasurement.mean = measurementMatrix * predictedState.mean;
+        predictedMeasurement.covariance = measurementMatrix *
+            predictedState.covariance * measurementMatrix.transpose() +
+            measurementModel->getNoiseCovarianceMatrix();
+
+        return predictedMeasurement;
+    }
+
+    /**
+     * Calculates the state-measurement cross-covariance matrix from the
+     * \em "a priori" state estimate.
+     *
+     * \param  predictedState  the \em "a priori" state estimate.
+     */
+    StateMeasurementCrossCovarianceMatrix calculateStateMeasurementCrossCovarianceMatrix(
+            const StateEstimate& predictedState) const {
+        MeasurementMatrix measurementMatrix =
+            measurementModel->getMeasurementMatrix();
+        return predictedState.covariance * measurementMatrix.transpose();
+    }
+
     /**
      * Corrects the given \em "a priori" predicted state with the information
      * gained from the given measurement.
@@ -132,73 +237,38 @@ protected:
      * \param  predictedState  the \em "a priori" predicted state of the system
      *                         that was calculated from the previous state
      *                         estimate using the process model
-     * \param  measurement     the most recent measurement of the state
+     * \param  predictedMeasurement  the \em "a priori" predicted measurement
+     *                               that was calculated from the predicted
+     *                               state using the measurement model
+     * \param  crossCovarianceMatrix the state-measurement cross-covariance
+     *                               matrix
+     * \param  measurement     the most recent \em actual state measurement
      */
     template <typename Measurement>
     void correctPredictedState(const StateEstimate& predictedState,
-            const Measurement& measurement) {
+            const MeasurementEstimate& predictedMeasurement,
+            const StateMeasurementCrossCovarianceMatrix& crossCovarianceMatrix,
+            const Measurement& actualMeasurement) {
         MeasurementMatrix measurementMatrix;
         Gaussian<Measurement::DIMENSIONS> innovation;
-        InnovationInverseMatrix innovationInverse;
-        KalmanGainMatrix partialResult;
+        MeasurementCovarianceMatrix innovationInverse;
         KalmanGainMatrix kalmanGain;
 
         // Calculate innovation
-        measurementMatrix = measurementModel->getMeasurementMatrix();
-        partialResult = predictedState.covariance * measurementMatrix.transpose();
-        innovation.mean = measurement.value - measurementMatrix * predictedState.mean;
-        innovation.covariance = measurementMatrix * partialResult +
-            measurementModel->getNoiseCovarianceMatrix();
+        innovation.mean = actualMeasurement.value - predictedMeasurement.mean;
+        innovation.covariance = predictedMeasurement.covariance;
 
         // Calculate Kalman gain
         // TODO: check which LU decomposition is the best here; choices are
         // here:
         // http://eigen.tuxfamily.org/dox/group__TutorialLinearAlgebra.html
         innovationInverse = innovation.covariance.fullPivLu().inverse();
-        kalmanGain = partialResult * innovationInverse;
+        kalmanGain = crossCovarianceMatrix * innovationInverse;
 
         // Combine predicted state and observation
         lastEstimate.mean = predictedState.mean + kalmanGain * innovation.mean;
-        lastEstimate.covariance = (
-                StateEstimate::CovarianceMatrix::Identity() -
-                kalmanGain * measurementMatrix
-        ) * predictedState.covariance;
-    }
-
-    StateEstimate predictNextState(double dt) const {
-        JacobianMatrix jacobian;
-        StateEstimate predictedState;
-
-        // Calculate the process Jacobian
-        jacobian = processModel->calculateJacobian(dt);
-
-        // Preliminary state prediction
-        predictedState.mean = jacobian * lastEstimate.mean;
-        predictedState.covariance = jacobian * lastEstimate.covariance *
-            jacobian.transpose() +
-            processModel->calculateNoiseCovarianceMatrix(dt);
-
-        return predictedState;
-    }
-
-    template <typename ControlVector>
-    StateEstimate predictNextState(double dt, const ControlVector& control) const {
-        JacobianMatrix jacobian;
-        StateEstimate predictedState;
-
-        // Calculate the process Jacobian
-        jacobian = processModel->calculateJacobian(dt);
-
-        // Preliminary state prediction
-        predictedState.mean = jacobian * lastEstimate.mean;
-        if (control.size() > 0) {
-            predictedState.mean += processModel->calculateControlMatrix(dt) * control;
-        }
-        predictedState.covariance = jacobian * lastEstimate.covariance *
-            jacobian.transpose() +
-            processModel->calculateNoiseCovarianceMatrix(dt);
-
-        return predictedState;
+        lastEstimate.covariance = predictedState.covariance -
+            kalmanGain * predictedMeasurement.covariance * kalmanGain.transpose();
     }
 };
 
