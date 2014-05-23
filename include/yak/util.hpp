@@ -1,3 +1,4 @@
+/* vim:set ts=4 sw=4 sts=4 et: */
 /*
  * The MIT License (MIT)
  * Copyright (c) 2014 Tamas Nepusz

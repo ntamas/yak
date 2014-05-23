@@ -1,3 +1,4 @@
+/* vim:set ts=4 sw=4 sts=4 et: */
 /*
  * The MIT License (MIT)
  * Copyright (c) 2014 Tamas Nepusz
@@ -36,79 +37,79 @@ class ConstantProcessModel {
 
 public:
 
-	typedef TStateEstimate StateEstimate;
+    typedef TStateEstimate StateEstimate;
 
 protected:
 
-	typedef typename StateEstimate::ColumnVector StateVector;
-	typedef Eigen::Matrix<
-		typename StateEstimate::DataType,
-		StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS
-	> StateStateMatrix;
+    typedef typename StateEstimate::ColumnVector StateVector;
+    typedef Eigen::Matrix<
+        typename StateEstimate::DataType,
+        StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS
+    > StateStateMatrix;
 
 public:
 
-	/**
-	 * The constant state that this process assumes in each step.
-	 */
-	StateVector constantState;
+    /**
+     * The constant state that this process assumes in each step.
+     */
+    StateVector constantState;
 
-	/**
-	 * Default constructor.
-	 */
-	ConstantProcessModel()
-		: constantState(StateVector::Zero()) {}
+    /**
+     * Default constructor.
+     */
+    ConstantProcessModel()
+        : constantState(StateVector::Zero()) {}
 
-	/**
-	 * Constructor that also sets the constant state.
-	 */
-	explicit ConstantProcessModel(const StateVector& initialState)
-		: constantState(initialState) {}
-	
-	/**
-	 * Calculate the control matrix of the process, assuming that
-	 * \c dt seconds have passed since the last Kalman filter step.
-	 * This matrix is usually denoted by B in textbooks.
-	 *
-	 * This function is optional; if you don't have a control vector
-	 * for your process, there is no need to add an implementation.
-	 *
-	 * \param  dt     the length of the time interval
-	 */
-	template <typename ControlMatrix>
-	ControlMatrix calculateControlMatrix(double dt) {
-		return ControlMatrix::Zero();
-	}
+    /**
+     * Constructor that also sets the constant state.
+     */
+    explicit ConstantProcessModel(const StateVector& initialState)
+        : constantState(initialState) {}
+    
+    /**
+     * Calculate the control matrix of the process, assuming that
+     * \c dt seconds have passed since the last Kalman filter step.
+     * This matrix is usually denoted by B in textbooks.
+     *
+     * This function is optional; if you don't have a control vector
+     * for your process, there is no need to add an implementation.
+     *
+     * \param  dt     the length of the time interval
+     */
+    template <typename ControlMatrix>
+    ControlMatrix calculateControlMatrix(double dt) {
+        return ControlMatrix::Zero();
+    }
 
-	/**
-	 * Calculate the Jacobian matrix of the process, integrated over
-	 * \c dt seconds. This matrix is usually denoted by A in textbooks.
-	 *
-	 * \param  dt     the length of the time interval
-	 */
-	StateStateMatrix calculateJacobian(double dt) {
-		return StateStateMatrix::Identity();
-	}
+    /**
+     * Calculate the Jacobian matrix of the process, integrated over
+     * \c dt seconds. This matrix is usually denoted by A in textbooks.
+     *
+     * \param  dt     the length of the time interval
+     */
+    StateStateMatrix calculateJacobian(double dt) {
+        return StateStateMatrix::Identity();
+    }
 
-	/**
-	 * Returns the covariance matrix of the process noise, integrated over
-	 * \c dt seconds. If you have a constant noise covariance matrix
-	 * (per second) here, just return it multiplied by \c dt in your own
-	 * implementation.
-	 *
-	 * \param  dt  the length of the time interval
-	 */
-	StateStateMatrix calculateNoiseCovarianceMatrix(double dt) {
-		return StateStateMatrix::Zero();
-	}
+    /**
+     * Returns the covariance matrix of the process noise, integrated over
+     * \c dt seconds. If you have a constant noise covariance matrix
+     * (per second) here, just return it multiplied by \c dt in your own
+     * implementation.
+     *
+     * \param  dt  the length of the time interval
+     */
+    StateStateMatrix calculateNoiseCovarianceMatrix(double dt) {
+        return StateStateMatrix::Zero();
+    }
 
-	/**
-	 * Returns the current state of the process. This function is not used by
-	 * the Kalman filter directly (obviously) but may be useful for debugging.
-	 */
-	StateVector getCurrentState() const {
-		return constantState;
-	}
+    /**
+     * Returns the current state of the process. This function is not used by
+     * the Kalman filter directly (obviously) but may be useful for debugging.
+     */
+    StateVector getCurrentState() const {
+        return constantState;
+    }
 };
 
 }

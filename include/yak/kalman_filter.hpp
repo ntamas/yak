@@ -1,3 +1,4 @@
+/* vim:set ts=4 sw=4 sts=4 et: */
 /*
  * The MIT License (MIT)
  * Copyright (c) 2014 Tamas Nepusz
@@ -36,169 +37,169 @@ template <typename TProcessModel, typename TMeasurementModel>
 class KalmanFilter {
 public:
 
-	/**
-	 * Typedef for the process model used by the filter.
-	 */
-	typedef TProcessModel ProcessModel;
+    /**
+     * Typedef for the process model used by the filter.
+     */
+    typedef TProcessModel ProcessModel;
 
-	/**
-	 * Typedef for the measurement model used by the filter.
-	 */
-	typedef TMeasurementModel MeasurementModel;
+    /**
+     * Typedef for the measurement model used by the filter.
+     */
+    typedef TMeasurementModel MeasurementModel;
 
-	/**
-	 * Convenience alias for the state estimate type used by the filter.
-	 */
-	typedef typename ProcessModel::StateEstimate StateEstimate;
+    /**
+     * Convenience alias for the state estimate type used by the filter.
+     */
+    typedef typename ProcessModel::StateEstimate StateEstimate;
 
-	typedef Eigen::Matrix<typename StateEstimate::DataType,
-		StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS> JacobianMatrix;
-	typedef Eigen::Matrix<typename StateEstimate::DataType,
-		MeasurementModel::DIMENSIONS, StateEstimate::DIMENSIONS> MeasurementMatrix;
-	typedef Eigen::Matrix<typename StateEstimate::DataType,
-		MeasurementModel::DIMENSIONS, MeasurementModel::DIMENSIONS> InnovationInverseMatrix;
-	typedef Eigen::Matrix<typename StateEstimate::DataType,
-		StateEstimate::DIMENSIONS, MeasurementModel::DIMENSIONS> KalmanGainMatrix;
+    typedef Eigen::Matrix<typename StateEstimate::DataType,
+        StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS> JacobianMatrix;
+    typedef Eigen::Matrix<typename StateEstimate::DataType,
+        MeasurementModel::DIMENSIONS, StateEstimate::DIMENSIONS> MeasurementMatrix;
+    typedef Eigen::Matrix<typename StateEstimate::DataType,
+        MeasurementModel::DIMENSIONS, MeasurementModel::DIMENSIONS> InnovationInverseMatrix;
+    typedef Eigen::Matrix<typename StateEstimate::DataType,
+        StateEstimate::DIMENSIONS, MeasurementModel::DIMENSIONS> KalmanGainMatrix;
 
-	/**
-	 * The process model that this filter is using.
-	 */
-	ProcessModel* const processModel;
+    /**
+     * The process model that this filter is using.
+     */
+    ProcessModel* const processModel;
 
-	/**
-	 * The measurement model that this filter is using.
-	 */
-	MeasurementModel* const measurementModel;
+    /**
+     * The measurement model that this filter is using.
+     */
+    MeasurementModel* const measurementModel;
 
-	/**
-	 * The last estimate of the state of the process.
-	 */
-	StateEstimate lastEstimate;
+    /**
+     * The last estimate of the state of the process.
+     */
+    StateEstimate lastEstimate;
 
 public:
 
-	/**
-	 * Constructor.
-	 */
-	KalmanFilter(ProcessModel* const processModel_,
-			MeasurementModel* const measurementModel_)
-		: processModel(processModel_), measurementModel(measurementModel_),
-		lastEstimate() {}
+    /**
+     * Constructor.
+     */
+    KalmanFilter(ProcessModel* const processModel_,
+            MeasurementModel* const measurementModel_)
+        : processModel(processModel_), measurementModel(measurementModel_),
+        lastEstimate() {}
 
-	/**
-	 * Resets the Kalman filter with the given initial state estimate.
-	 *
-	 * \param  initial  the initial state estimate
-	 */
-	void reset(const StateEstimate& initial) {
-		lastEstimate = initial;
-	}
+    /**
+     * Resets the Kalman filter with the given initial state estimate.
+     *
+     * \param  initial  the initial state estimate
+     */
+    void reset(const StateEstimate& initial) {
+        lastEstimate = initial;
+    }
 
-	/**
-	 * Updates the Kalman filter with the latest measurements and the
-	 * time that has passed since the last measurement, assuming that
-	 * there is no control signal.
-	 *
-	 * \param  dt           the time elapsed since the last measurement
-	 * \param  measurement  the value of the current measurement
-	 */
-	template <typename Measurement>
-	void update(double dt, const Measurement& measurement) {
-		StateEstimate predictedState = predictNextState(dt);
-		correctPredictedState(predictedState, measurement);
-	}
+    /**
+     * Updates the Kalman filter with the latest measurements and the
+     * time that has passed since the last measurement, assuming that
+     * there is no control signal.
+     *
+     * \param  dt           the time elapsed since the last measurement
+     * \param  measurement  the value of the current measurement
+     */
+    template <typename Measurement>
+    void update(double dt, const Measurement& measurement) {
+        StateEstimate predictedState = predictNextState(dt);
+        correctPredictedState(predictedState, measurement);
+    }
 
-	/**
-	 * Updates the Kalman filter with the latest measurements, the current
-	 * control signal and the time that has passed since the last measurement.
-	 *
-	 * \param  dt           the time elapsed since the last measurement
-	 * \param  control      the value of the current control vector
-	 * \param  measurement  the value of the current measurement
-	 */
-	template <typename Measurement, typename ControlVector>
-	void update(double dt, const ControlVector& control,
-			const Measurement& measurement) {
-		StateEstimate predictedState = predictNextState(dt);
-		correctPredictedState(predictedState, measurement);
-	}
+    /**
+     * Updates the Kalman filter with the latest measurements, the current
+     * control signal and the time that has passed since the last measurement.
+     *
+     * \param  dt           the time elapsed since the last measurement
+     * \param  control      the value of the current control vector
+     * \param  measurement  the value of the current measurement
+     */
+    template <typename Measurement, typename ControlVector>
+    void update(double dt, const ControlVector& control,
+            const Measurement& measurement) {
+        StateEstimate predictedState = predictNextState(dt, control);
+        correctPredictedState(predictedState, measurement);
+    }
 
 protected:
-	/**
-	 * Corrects the given predicted state with the information gained
-	 * from the given measurement.
-	 *
-	 * \param  predictedState  the predicted state of the system that
-	 *                         was calculated from the previous state
-	 *                         using the process model
-	 * \param  measurement     the most recent measurement of the state
-	 */
-	template <typename Measurement>
-	void correctPredictedState(const StateEstimate& predictedState,
-			const Measurement& measurement) {
-		MeasurementMatrix measurementMatrix;
-		Gaussian<Measurement::DIMENSIONS> innovation;
-		InnovationInverseMatrix innovationInverse;
-		KalmanGainMatrix partialResult;
-		KalmanGainMatrix kalmanGain;
+    /**
+     * Corrects the given \em "a priori" predicted state with the information
+     * gained from the given measurement.
+     *
+     * \param  predictedState  the \em "a priori" predicted state of the system
+     *                         that was calculated from the previous state
+     *                         estimate using the process model
+     * \param  measurement     the most recent measurement of the state
+     */
+    template <typename Measurement>
+    void correctPredictedState(const StateEstimate& predictedState,
+            const Measurement& measurement) {
+        MeasurementMatrix measurementMatrix;
+        Gaussian<Measurement::DIMENSIONS> innovation;
+        InnovationInverseMatrix innovationInverse;
+        KalmanGainMatrix partialResult;
+        KalmanGainMatrix kalmanGain;
 
-		// Calculate innovation
-		measurementMatrix = measurementModel->getMeasurementMatrix();
-		partialResult = predictedState.covariance * measurementMatrix.transpose();
-		innovation.mean = measurement.value - measurementMatrix * predictedState.mean;
-		innovation.covariance = measurementMatrix * partialResult +
-			measurementModel->getNoiseCovarianceMatrix();
+        // Calculate innovation
+        measurementMatrix = measurementModel->getMeasurementMatrix();
+        partialResult = predictedState.covariance * measurementMatrix.transpose();
+        innovation.mean = measurement.value - measurementMatrix * predictedState.mean;
+        innovation.covariance = measurementMatrix * partialResult +
+            measurementModel->getNoiseCovarianceMatrix();
 
-		// Calculate Kalman gain
-		// TODO: check which LU decomposition is the best here; choices are
-		// here:
-		// http://eigen.tuxfamily.org/dox/group__TutorialLinearAlgebra.html
-		innovationInverse = innovation.covariance.fullPivLu().inverse();
-		kalmanGain = partialResult * innovationInverse;
+        // Calculate Kalman gain
+        // TODO: check which LU decomposition is the best here; choices are
+        // here:
+        // http://eigen.tuxfamily.org/dox/group__TutorialLinearAlgebra.html
+        innovationInverse = innovation.covariance.fullPivLu().inverse();
+        kalmanGain = partialResult * innovationInverse;
 
-		// Combine predicted state and observation
-		lastEstimate.mean = predictedState.mean + kalmanGain * innovation.mean;
-		lastEstimate.covariance = (
-				StateEstimate::CovarianceMatrix::Identity() -
-				kalmanGain * measurementMatrix
-		) * predictedState.covariance;
-	}
+        // Combine predicted state and observation
+        lastEstimate.mean = predictedState.mean + kalmanGain * innovation.mean;
+        lastEstimate.covariance = (
+                StateEstimate::CovarianceMatrix::Identity() -
+                kalmanGain * measurementMatrix
+        ) * predictedState.covariance;
+    }
 
-	StateEstimate predictNextState(double dt) const {
-		JacobianMatrix jacobian;
-		StateEstimate predictedState;
+    StateEstimate predictNextState(double dt) const {
+        JacobianMatrix jacobian;
+        StateEstimate predictedState;
 
-		// Calculate the process Jacobian
-		jacobian = processModel->calculateJacobian(dt);
+        // Calculate the process Jacobian
+        jacobian = processModel->calculateJacobian(dt);
 
-		// Preliminary state prediction
-		predictedState.mean = jacobian * lastEstimate.mean;
-		predictedState.covariance = jacobian * lastEstimate.covariance *
-			jacobian.transpose() +
-			processModel->calculateNoiseCovarianceMatrix(dt);
+        // Preliminary state prediction
+        predictedState.mean = jacobian * lastEstimate.mean;
+        predictedState.covariance = jacobian * lastEstimate.covariance *
+            jacobian.transpose() +
+            processModel->calculateNoiseCovarianceMatrix(dt);
 
-		return predictedState;
-	}
+        return predictedState;
+    }
 
-	template <typename ControlVector>
-	StateEstimate predictNextState(double dt, const ControlVector& control) const {
-		JacobianMatrix jacobian;
-		StateEstimate predictedState;
+    template <typename ControlVector>
+    StateEstimate predictNextState(double dt, const ControlVector& control) const {
+        JacobianMatrix jacobian;
+        StateEstimate predictedState;
 
-		// Calculate the process Jacobian
-		jacobian = processModel->calculateJacobian(dt);
+        // Calculate the process Jacobian
+        jacobian = processModel->calculateJacobian(dt);
 
-		// Preliminary state prediction
-		predictedState.mean = jacobian * lastEstimate.mean;
-		if (control.size() > 0) {
-			predictedState.mean += processModel->calculateControlMatrix(dt) * control;
-		}
-		predictedState.covariance = jacobian * lastEstimate.covariance *
-			jacobian.transpose() +
-			processModel->calculateNoiseCovarianceMatrix(dt);
+        // Preliminary state prediction
+        predictedState.mean = jacobian * lastEstimate.mean;
+        if (control.size() > 0) {
+            predictedState.mean += processModel->calculateControlMatrix(dt) * control;
+        }
+        predictedState.covariance = jacobian * lastEstimate.covariance *
+            jacobian.transpose() +
+            processModel->calculateNoiseCovarianceMatrix(dt);
 
-		return predictedState;
-	}
+        return predictedState;
+    }
 };
 
 }       // end of namespaces

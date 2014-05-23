@@ -1,3 +1,4 @@
+/* vim:set ts=4 sw=4 sts=4 et: */
 /*
  * The MIT License (MIT)
  * Copyright (c) 2014 Tamas Nepusz
@@ -34,31 +35,31 @@ namespace yak {
 template <int dimension, typename T=double>
 class SimpleControlVector {
 public:
-	/**
-	 * Static constant that can be used to retrieve the dimensions of the
-	 * control vector at compile time.
-	 */
-	static const int DIMENSIONS = dimension;
+    /**
+     * Static constant that can be used to retrieve the dimensions of the
+     * control vector at compile time.
+     */
+    static const int DIMENSIONS = dimension;
 
-	/**
-	 * Typedef for the datatype used in this class.
-	 */
-	typedef T DataType;
+    /**
+     * Typedef for the datatype used in this class.
+     */
+    typedef T DataType;
 
-	/**
-	 * Typedef for a column vector containing exactly \c DIMENSIONS coordinates.
-	 */
-	typedef Eigen::Matrix<T, dimension, 1> ColumnVector;
-	
-	/**
-	 * The value of the control vector.
-	 */
-	ColumnVector value;
+    /**
+     * Typedef for a column vector containing exactly \c DIMENSIONS coordinates.
+     */
+    typedef Eigen::Matrix<T, dimension, 1> ColumnVector;
+    
+    /**
+     * The value of the control vector.
+     */
+    ColumnVector value;
 
-	/**
-	 * Default constructor.
-	 */
-	SimpleControlVector() : value(ColumnVector::Zero()) {}
+    /**
+     * Default constructor.
+     */
+    SimpleControlVector() : value(ColumnVector::Zero()) {}
 };
 
 }       // end of namespaces

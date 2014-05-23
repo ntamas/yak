@@ -1,3 +1,4 @@
+/* vim:set ts=4 sw=4 sts=4 et: */
 /*
  * The MIT License (MIT)
  * Copyright (c) 2014 Tamas Nepusz
@@ -34,38 +35,38 @@ namespace yak {
 template <int dimension, typename T=double>
 class SimpleMeasurement {
 public:
-	/**
-	 * Static constant that can be used to retrieve the dimensions of the
-	 * measurement vector at compile time.
-	 */
-	static const int DIMENSIONS = dimension;
+    /**
+     * Static constant that can be used to retrieve the dimensions of the
+     * measurement vector at compile time.
+     */
+    static const int DIMENSIONS = dimension;
 
 protected:
-	/**
-	 * Typedef for the datatype used in this class.
-	 */
-	typedef T DataType;
+    /**
+     * Typedef for the datatype used in this class.
+     */
+    typedef T DataType;
 
-	/**
-	 * Typedef for a column vector containing exactly \c DIMENSIONS coordinates.
-	 */
-	typedef Eigen::Matrix<T, dimension, 1> ColumnVector;
-	
+    /**
+     * Typedef for a column vector containing exactly \c DIMENSIONS coordinates.
+     */
+    typedef Eigen::Matrix<T, dimension, 1> ColumnVector;
+    
 public:
-	/**
-	 * The value of the measurement in vector form.
-	 */
-	ColumnVector value;
+    /**
+     * The value of the measurement in vector form.
+     */
+    ColumnVector value;
 
-	/**
-	 * Default constructor.
-	 */
-	SimpleMeasurement() : value(ColumnVector::Zero()) {}
+    /**
+     * Default constructor.
+     */
+    SimpleMeasurement() : value(ColumnVector::Zero()) {}
 
-	/**
-	 * Constructor that sets the measurement to a given value.
-	 */
-	explicit SimpleMeasurement(const ColumnVector& value_) : value(value_) {}
+    /**
+     * Constructor that sets the measurement to a given value.
+     */
+    explicit SimpleMeasurement(const ColumnVector& value_) : value(value_) {}
 };
 
 /**
@@ -76,72 +77,72 @@ template <typename TState, typename TMeasurement>
 class IndependentNoisyMeasurementModel {
 
 public:
-	/**
-	 * The number of dimensions of the measurement vector.
-	 */
-	static const int DIMENSIONS = TMeasurement::DIMENSIONS;
+    /**
+     * The number of dimensions of the measurement vector.
+     */
+    static const int DIMENSIONS = TMeasurement::DIMENSIONS;
 
 protected:
-	/**
-	 * Convenience typedef; points to the measurement type used by this model.
-	 */
-	typedef TMeasurement Measurement;
+    /**
+     * Convenience typedef; points to the measurement type used by this model.
+     */
+    typedef TMeasurement Measurement;
 
-	/**
-	 * Convenience typedef; points to the type of the matrix that transforms a
-	 * state into a measurement.
-	 */
-	typedef Eigen::Matrix<typename TState::DataType,
-			DIMENSIONS, TState::DIMENSIONS> MeasurementMatrix;
+    /**
+     * Convenience typedef; points to the type of the matrix that transforms a
+     * state into a measurement.
+     */
+    typedef Eigen::Matrix<typename TState::DataType,
+            DIMENSIONS, TState::DIMENSIONS> MeasurementMatrix;
 
-	/**
-	 * Convenience typedef; points to the type of the matrix that describes the
-	 * covariance of a measurement.
-	 */
-	typedef Eigen::Matrix<typename TState::DataType,
-			DIMENSIONS, DIMENSIONS> CovarianceMatrix;
+    /**
+     * Convenience typedef; points to the type of the matrix that describes the
+     * covariance of a measurement.
+     */
+    typedef Eigen::Matrix<typename TState::DataType,
+            DIMENSIONS, DIMENSIONS> CovarianceMatrix;
 
-	/**
-	 * Convenience typedef; points to a vector that contains the variances of the
-	 * individual noise components.
-	 */
-	typedef Eigen::Matrix<typename TState::DataType, DIMENSIONS, 1>
-		NoiseVarianceVector;
+    /**
+     * Convenience typedef; points to a vector that contains the variances of the
+     * individual noise components.
+     */
+    typedef Eigen::Matrix<typename TState::DataType, DIMENSIONS, 1>
+        NoiseVarianceVector;
 
 public:
-	/**
-	 * Contains the variances of the individual noise components.
-	 */
-	NoiseVarianceVector variances;
+    /**
+     * Contains the variances of the individual noise components.
+     */
+    NoiseVarianceVector variances;
 
-	/**
-	 * Returns the matrix that transforms a state variable vector into a
-	 * measurement vector when the matrix is multiplied by the state from the
-	 * right.
-	 */
-	MeasurementMatrix getMeasurementMatrix() const {
-		return MeasurementMatrix::Identity();
-	}
+    /**
+     * Returns the matrix that transforms a state variable vector into a
+     * measurement vector when the matrix is multiplied by the state from the
+     * right.
+     */
+    MeasurementMatrix getMeasurementMatrix() const {
+        return MeasurementMatrix::Identity();
+    }
 
-	/**
-	 * Returns the covariance matrix of the measurement noise.
-	 */
-	CovarianceMatrix getNoiseCovarianceMatrix() const {
-		return variances.asDiagonal();
-	}
+    /**
+     * Returns the covariance matrix of the measurement noise.
+     */
+    CovarianceMatrix getNoiseCovarianceMatrix() const {
+        return variances.asDiagonal();
+    }
 
-	/**
-	 * Utility function that generates a noise vector using the variances
-	 * given in this measurement model.
-	 */
-	NoiseVarianceVector generateNoise() const {
-		NoiseVarianceVector result;
-		int i, n = result.size();
-		for (i = 0; i < n; i++) {
-			result(i) = standard_normal<typename TState::DataType>() * variances(i);
-		}
-		return result;
-	}
+    /**
+     * Utility function that generates a noise vector using the variances
+     * given in this measurement model.
+     */
+    NoiseVarianceVector generateNoise() const {
+        NoiseVarianceVector result;
+        int i, n = result.size();
+        for (i = 0; i < n; i++) {
+            result(i) = standard_normal<typename TState::DataType>() * variances(i);
+        }
+        return result;
+    }
 };
 
 }       // end of namespaces
