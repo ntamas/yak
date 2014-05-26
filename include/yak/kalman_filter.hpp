@@ -27,14 +27,17 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <yak/measurement_predictors.hpp>
+#include <yak/state_predictors.hpp>
 
 namespace yak {
 
 /**
- * The main Kalman filter class.
+ * Base class for Kalman filter implementations.
  */
-template <typename TProcessModel, typename TMeasurementModel>
-class KalmanFilter {
+template <typename TProcessModel, typename TMeasurementModel,
+         typename TStatePredictor, typename TMeasurementPredictor>
+class KalmanFilterBase {
 public:
 
     /**
@@ -53,20 +56,16 @@ public:
     typedef typename ProcessModel::StateEstimate StateEstimate;
 
     /**
-     * Convenience alias for the data type of predicted measurements.
+     * Convenience alias for the measurement estimate type used by the filter.
      */
-    typedef Gaussian<MeasurementModel::DIMENSIONS> MeasurementEstimate;
+    typedef typename MeasurementModel::MeasurementEstimate MeasurementEstimate;
 
     typedef Eigen::Matrix<typename StateEstimate::DataType,
-        StateEstimate::DIMENSIONS, StateEstimate::DIMENSIONS> JacobianMatrix;
+        MeasurementEstimate::DIMENSIONS, MeasurementEstimate::DIMENSIONS> MeasurementCovarianceMatrix;
     typedef Eigen::Matrix<typename StateEstimate::DataType,
-        MeasurementModel::DIMENSIONS, StateEstimate::DIMENSIONS> MeasurementMatrix;
+        StateEstimate::DIMENSIONS, MeasurementEstimate::DIMENSIONS> KalmanGainMatrix;
     typedef Eigen::Matrix<typename StateEstimate::DataType,
-        MeasurementModel::DIMENSIONS, MeasurementModel::DIMENSIONS> MeasurementCovarianceMatrix;
-    typedef Eigen::Matrix<typename StateEstimate::DataType,
-        StateEstimate::DIMENSIONS, MeasurementModel::DIMENSIONS> KalmanGainMatrix;
-    typedef Eigen::Matrix<typename StateEstimate::DataType,
-        StateEstimate::DIMENSIONS, MeasurementModel::DIMENSIONS> StateMeasurementCrossCovarianceMatrix;
+        StateEstimate::DIMENSIONS, MeasurementEstimate::DIMENSIONS> StateMeasurementCrossCovarianceMatrix;
 
     /**
      * The process model that this filter is using.
@@ -79,6 +78,16 @@ public:
     MeasurementModel* const measurementModel;
 
     /**
+     * The state predictor that this filter is using.
+     */
+    TStatePredictor statePredictor;
+
+    /**
+     * The measurement predictor that this filter is using.
+     */
+    TMeasurementPredictor measurementPredictor;
+
+    /**
      * The last estimate of the state of the process.
      */
     StateEstimate lastEstimate;
@@ -88,9 +97,10 @@ public:
     /**
      * Constructor.
      */
-    KalmanFilter(ProcessModel* const processModel_,
+    KalmanFilterBase(ProcessModel* const processModel_,
             MeasurementModel* const measurementModel_)
         : processModel(processModel_), measurementModel(measurementModel_),
+        statePredictor(processModel_), measurementPredictor(measurementModel_),
         lastEstimate() {}
 
     /**
@@ -112,11 +122,14 @@ public:
      */
     template <typename Measurement>
     void update(double dt, const Measurement& measurement) {
-        StateEstimate predictedState = predictNextState(dt);
-        MeasurementEstimate predictedMeasurement = predictNextMeasurement(
-                predictedState);
-        StateMeasurementCrossCovarianceMatrix crossCovarianceMatrix =
-            calculateStateMeasurementCrossCovarianceMatrix(predictedState);
+        StateMeasurementCrossCovarianceMatrix crossCovarianceMatrix;
+
+        StateEstimate predictedState =
+            statePredictor.predictNextState(lastEstimate, dt);
+        MeasurementEstimate predictedMeasurement =
+            measurementPredictor.predictNextMeasurement(predictedState);
+        measurementPredictor.calculateStateMeasurementCrossCovarianceMatrix(predictedState,
+                crossCovarianceMatrix);
         correctPredictedState(predictedState, predictedMeasurement,
                 crossCovarianceMatrix, measurement);
     }
@@ -132,103 +145,19 @@ public:
     template <typename Measurement, typename ControlVector>
     void update(double dt, const ControlVector& control,
             const Measurement& measurement) {
-        StateEstimate predictedState = predictNextState(dt, control);
-        MeasurementEstimate predictedMeasurement = predictNextMeasurement(
-                predictedState);
-        StateMeasurementCrossCovarianceMatrix crossCovarianceMatrix =
-            calculateStateMeasurementCrossCovarianceMatrix(predictedState);
+        StateMeasurementCrossCovarianceMatrix crossCovarianceMatrix;
+
+        StateEstimate predictedState =
+            statePredictor.predictNextState(lastEstimate, dt, control);
+        MeasurementEstimate predictedMeasurement =
+            measurementPredictor.predictNextMeasurement(predictedState);
+        measurementPredictor.calculateStateMeasurementCrossCovarianceMatrix(predictedState,
+                crossCovarianceMatrix);
         correctPredictedState(predictedState, predictedMeasurement,
                 crossCovarianceMatrix, measurement);
     }
 
 protected:
-
-    /**
-     * Predicts the next state of the model based on the previous state
-     * estimate and the time that has passed since the last measurement.
-     *
-     * \param  dt  the time that has passed since the last measurement
-     * \return the \em "a priori" state estimate
-     */
-    StateEstimate predictNextState(double dt) const {
-        JacobianMatrix jacobianMatrix;
-        StateEstimate predictedState;
-
-        // Calculate the process Jacobian
-        jacobianMatrix = processModel->calculateJacobian(dt);
-
-        // Preliminary state prediction
-        predictedState.mean = jacobianMatrix * lastEstimate.mean;
-        predictedState.covariance = jacobianMatrix * lastEstimate.covariance *
-            jacobianMatrix.transpose() +
-            processModel->calculateNoiseCovarianceMatrix(dt);
-
-        return predictedState;
-    }
-
-    /**
-     * Predicts the next state of the model based on the previous state
-     * estimate, the time that has passed since the last measurement, and
-     * the current control vector.
-     *
-     * \param  dt       the time that has passed since the last measurement
-     * \param  control  the current control vector
-     * \return the \em "a priori" state estimate
-     */
-    template <typename ControlVector>
-    StateEstimate predictNextState(double dt, const ControlVector& control) const {
-        JacobianMatrix jacobianMatrix;
-        StateEstimate predictedState;
-
-        // Calculate the process Jacobian
-        jacobianMatrix = processModel->calculateJacobian(dt);
-
-        // Preliminary state prediction
-        predictedState.mean = jacobianMatrix * lastEstimate.mean;
-        if (control.size() > 0) {
-            predictedState.mean += processModel->calculateControlMatrix(dt) * control;
-        }
-        predictedState.covariance = jacobianMatrix *
-            lastEstimate.covariance * jacobianMatrix.transpose() +
-            processModel->calculateNoiseCovarianceMatrix(dt);
-
-        return predictedState;
-    }
-
-    /**
-     * Predicts the next measurement from the \em "a priori" state estimate.
-     *
-     * \param  predictedState  the \em "a priori" state estimate.
-     */
-    MeasurementEstimate predictNextMeasurement(const StateEstimate& predictedState)
-        const {
-        MeasurementEstimate predictedMeasurement;
-        MeasurementMatrix measurementMatrix;
-
-        // Calculate the measurement matrix
-        measurementMatrix = measurementModel->getMeasurementMatrix();
-
-        // Calculate the predicted measurement from the predicted state
-        predictedMeasurement.mean = measurementMatrix * predictedState.mean;
-        predictedMeasurement.covariance = measurementMatrix *
-            predictedState.covariance * measurementMatrix.transpose() +
-            measurementModel->getNoiseCovarianceMatrix();
-
-        return predictedMeasurement;
-    }
-
-    /**
-     * Calculates the state-measurement cross-covariance matrix from the
-     * \em "a priori" state estimate.
-     *
-     * \param  predictedState  the \em "a priori" state estimate.
-     */
-    StateMeasurementCrossCovarianceMatrix calculateStateMeasurementCrossCovarianceMatrix(
-            const StateEstimate& predictedState) const {
-        MeasurementMatrix measurementMatrix =
-            measurementModel->getMeasurementMatrix();
-        return predictedState.covariance * measurementMatrix.transpose();
-    }
 
     /**
      * Corrects the given \em "a priori" predicted state with the information
@@ -249,8 +178,7 @@ protected:
             const MeasurementEstimate& predictedMeasurement,
             const StateMeasurementCrossCovarianceMatrix& crossCovarianceMatrix,
             const Measurement& actualMeasurement) {
-        MeasurementMatrix measurementMatrix;
-        Gaussian<Measurement::DIMENSIONS> innovation;
+        MeasurementEstimate innovation;
         MeasurementCovarianceMatrix innovationInverse;
         KalmanGainMatrix kalmanGain;
 
@@ -270,6 +198,29 @@ protected:
         lastEstimate.covariance = predictedState.covariance -
             kalmanGain * predictedMeasurement.covariance * kalmanGain.transpose();
     }
+};
+
+template <typename TProcessModel, typename TMeasurementModel>
+class KalmanFilter : public KalmanFilterBase<TProcessModel, TMeasurementModel,
+    LinearStatePredictor<TProcessModel>,
+    LinearMeasurementPredictor<TMeasurementModel> > {
+
+    /**
+     * Typedef of the superclass to avoid having to type the entire template
+     * every time it is needed.
+     */
+    typedef KalmanFilterBase<TProcessModel, TMeasurementModel,
+        LinearStatePredictor<TProcessModel>,
+        LinearMeasurementPredictor<TMeasurementModel> > Super;
+
+public:
+    /**
+     * Constructor.
+     */
+    KalmanFilter(TProcessModel* const processModel_,
+            TMeasurementModel* const measurementModel_)
+        : Super(processModel_, measurementModel_) {}
+
 };
 
 }       // end of namespaces

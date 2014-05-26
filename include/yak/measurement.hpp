@@ -82,6 +82,11 @@ public:
      */
     static const int DIMENSIONS = TMeasurement::DIMENSIONS;
 
+    /**
+     * Convenience alias for the data type of estimated measurements.
+     */
+    typedef Gaussian<TMeasurement::DIMENSIONS> MeasurementEstimate;
+
 protected:
     /**
      * Convenience typedef; points to the measurement type used by this model.

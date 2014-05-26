@@ -29,6 +29,7 @@
 #include <yak/kalman_filter.hpp>
 #include <yak/measurement.hpp>
 #include <yak/process.hpp>
+#include <yak/state_predictors.hpp>
 #include <yak/util.hpp>
 
 #endif

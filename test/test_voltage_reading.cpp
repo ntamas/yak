@@ -53,6 +53,8 @@ public:
 	static const int NUM_READINGS = 10;
 	static const double predefinedReadings[NUM_READINGS];
 	
+	typedef Gaussian<1> MeasurementEstimate;
+
 	int time;
 
 	VoltageMeasurementModel() : time(0) {}

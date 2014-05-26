@@ -110,6 +110,7 @@ public:
 
 	static const int DIMENSIONS = 4;
 
+	typedef Gaussian<4> MeasurementEstimate;
 	typedef Eigen::Matrix<double, 4, 6> MeasurementMatrix;
 
 	double time;
