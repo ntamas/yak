@@ -25,6 +25,7 @@
 #ifndef YAK_MEASUREMENT_HPP
 #define YAK_MEASUREMENT_HPP
 
+#include <cmath>
 #include <yak/util.hpp>
 
 namespace yak {
@@ -144,7 +145,7 @@ public:
         NoiseVarianceVector result;
         int i, n = result.size();
         for (i = 0; i < n; i++) {
-            result(i) = standard_normal<typename TState::DataType>() * variances(i);
+            result(i) = standard_normal<typename TState::DataType>() * std::sqrt(variances(i));
         }
         return result;
     }

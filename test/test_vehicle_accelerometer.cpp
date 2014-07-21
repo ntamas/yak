@@ -38,6 +38,7 @@
  * fed into the filter as a control signal.
  */
 
+#include <cmath>
 #include <iostream>
 #include <yak/yak.hpp>
 
@@ -147,7 +148,7 @@ public:
 	Vector4d generateNoise() const {
 		Vector4d result;
 		for (int i = 0; i < 4; i++) {
-			result(i) = standard_normal<double>() * variances(i);
+			result(i) = standard_normal<double>() * std::sqrt(variances(i));
 		}
 		return result;
 	}
